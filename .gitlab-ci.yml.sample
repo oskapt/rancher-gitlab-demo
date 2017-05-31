@@ -1,0 +1,42 @@
+variables:
+  REGISTRY_HOST: registry.example.com
+  HUB_USERNAME: set_this
+  TEST_IMAGE: $REGISTRY_HOST/$CI_PROJECT_PATH:$CI_BUILD_REF_NAME
+  RELEASE_IMAGE: $REGISTRY_HOST/$CI_PROJECT_PATH:latest
+  DOCKER_IMAGE: $HUB_USERNAME/$CI_PROJECT_NAME:latest
+
+stages:
+  - build
+  - release
+
+before_script:
+  - docker info
+  - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN $REGISTRY_HOST
+
+build:
+  stage: build
+  script:
+    - docker build --pull -t $TEST_IMAGE .
+    - docker push $TEST_IMAGE
+
+release:
+  stage: release
+  script:
+    - docker pull $TEST_IMAGE
+    - docker tag $TEST_IMAGE $RELEASE_IMAGE
+    - docker push $RELEASE_IMAGE
+  only:
+    - master
+
+push_to_docker_hub:
+  # in order for this to work you will need to set
+  # `HUB_USERNAME` and `HUB_PASSWORD` as CI variables
+  # in Gitlab
+  stage: release
+  script:
+    - docker login -u $HUB_USERNAME -p $HUB_PASSWORD
+    - docker tag $RELEASE_IMAGE $DOCKER_IMAGE
+    - docker push $DOCKER_IMAGE
+  only:
+    - master
+  when: manual
